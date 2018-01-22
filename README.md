@@ -29,8 +29,6 @@
       assert foo == 42
   ```
 
-  ​
-
 - No setUp and tearDown functions.
 
 - Fine grained control over the life span of the objects with 'scope'.
@@ -453,15 +451,15 @@ For more info about parallel tests: http://developer.paylogic.com/articles/test-
 
 #### What is tox?
 
-tox is a generic [virtualenv](https://pypi.python.org/pypi/virtualenv) management and test command line tool you can use for:
+Tox is a generic [virtualenv](https://pypi.python.org/pypi/virtualenv) management and test command line tool you can use for:
 
-- checking your package installs correctly with different Python versions and interpreters
-- running your tests in each of the environments, configuring your test tool of choice
-- acting as a frontend to Continuous Integration servers, greatly reducing boilerplate and merging CI and shell-based testing.
+- Checking your package installs correctly with different Python versions and interpreters
+- Running your tests in each of the environments, configuring your test tool of choice
+- Acting as a frontend to Continuous Integration servers, greatly reducing boilerplate and merging CI and shell-based testing.
 
 ### tox.ini - for coreapi:
 
-```
+```ini
 [tox]
 envlist = py27
 skipsdist = True
@@ -477,8 +475,3 @@ deps = -r{toxinidir}/requirements.txt
 python_files = *pytest.py
 norecursedirs = .tox .git
 ```
-
-
-
-### 
-
