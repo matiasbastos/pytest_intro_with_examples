@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+        <title>Pytest presentation: pytest > nosetests</title>
+
+		<meta name="description" content="The pytest framework makes it easy to write small tests, yet scales to support complex functional testing for applications and libraries.">
+		<meta name="author" content="Matias Bastos">
+
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/league.css" id="theme">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+				<section>
+					<h1>Pytest</h1>
+					<h3>Simpler and better testing</h3>
+					<p>
+						<small>Presented by <a href="https://www.linkedin.com/in/matiasbastos/">Matias Bastos</a></small>
+					</p>
+				</section>
+
+				<section>
+                    <section data-markdown>
+                        ### Features
+
+                        - Simple tests with no boilerplate:
+
+                          - With unittest: 
+
+                          ```python
+                          self.assertEqual(1 + 1, 2)
+                          ```
+
+                          - With pytest: 
+
+                          ```python
+                          assert 1 + 1 == 2
+                          ```
+                    </section>
+                    <section data-markdown>
+                        - Dependency injection model with fixtures!
+
+                          ```python
+                          import pytest
+
+                          @pytest.fixture
+                          def foo():
+                              return 42
+
+                          def test_foo(foo):
+                              assert foo == 42
+                          ```
+
+                    </section>
+                    <section data-markdown>
+                        - No setUp and tearDown functions.
+                        - Fine grained control over the life span of the objects with 'scope'.
+                        - Promotes code reusability.
+                        - No big base classes with tons of black magic.
+                        - Can run unittest or nose tests but fails on some complex tests :-/
+                    </section>
+				</section>
+
+				<section>
+                    <section data-markdown>
+                        ## Fixtures!
+
+                        ### Basic fixture
+
+                        ```python
+                        @pytest.fixture
+                        def player(database_service, cache_service):
+                            fake = Factory.create('en_US')
+                            return create_player(isActive=True, mobile_number=fake.msisdn())
+
+                        def test_player_login(player):
+                            result = Player.login(username=player._plain_username,
+                                                  password=player._plain_password,
+                                                  ip='127.0.0.1',
+                                                  is_mobile=False)
+                            assert type(result) == dict
+                        ```
+					</section>
+                    <section data-markdown>
+                        ### Dependant fixtures
+
+                        ```python
+                        @pytest.fixture
+                        def player(database_service, cache_service):
+                            fake = Factory.create('en_US')
+                            return create_player(isActive=True, mobile_number=fake.msisdn())
+
+                        @pytest.fixture
+                        def player_banned(player):
+                            player.isBanned = True
+                            return player._plain_username, player._plain_password
+
+                        def test_player_login_banned(player_banned):
+                            result = Player.login(username=player_banned[0],
+                                                  password=player_banned[1],
+                                                  ip='127.0.0.1',
+                                                  is_mobile=False)
+                            assert result == ERR_USER_BANNED
+                        ```
+					</section>
+                    <section data-markdown>
+                        ### Fixtures scope and tear down with yield
+
+                        ```python
+                        @pytest.fixture(scope="module")
+                        def database_service(request):
+                            db = DatabaseTestService()
+                            db.on_setup_class()
+                            db.on_setup()
+                            yield db.transaction
+                            db.on_tear_down()
+
+                        @pytest.fixture(scope="module")
+                        def cache_service():
+                            cache = CacheTestService()
+                            yield cache.on_setup_class()
+                            
+                        @pytest.fixture
+                        def player(database_service, cache_service):
+                            fake = Factory.create('en_US')
+                            return create_player(isActive=True, mobile_number=fake.msisdn())
+                            
+                        def test_player_login(player):
+                            result = Player.login(username=player._plain_username, password=player._plain_password, ip='127.0.0.1', is_mobile=False)
+                            assert type(result) == dict    
+                        ```
+
+                        `Scope options: function (default), class, module or session.`
+					</section>
+                    <section data-markdown>
+                        ### Parametrization
+
+                        ```python
+                        @pytest.fixture
+                        def player(database_service, cache_service):
+                            fake = Factory.create('en_US')
+                            return create_player(isActive=True, mobile_number=fake.msisdn())
+
+                        @pytest.mark.parametrize('country', ['PT', 'MT', None])
+                        def test_player_login_stores_country_code(player, country):
+                            """ Test if the login is getting stored
+                            :params player: player object
+                            :params country: country code
+                            """
+                            result = Player.login(username=player._plain_username, password=player._plain_password, ip='127.0.0.1', country_code=country, tool_name='internal')
+                            assert type(result) == dict
+                            last_login = Login.get_last_login(player.player_id)
+                            assert last_login.country_code == country
+                        ```
+					</section>
+                    <section data-markdown>
+                        ### Lazy fixtures
+
+                        ```python
+                        @pytest.fixture
+                        def player_inactive_with_email(player):
+                            player.isActive = False
+                            player.activated_email = False
+                            return player._plain_username, player._plain_password
+
+                        @pytest.fixture
+                        def player_inactive_with_phone(player):
+                            player.isActive = False
+                            player.activated_sms = False
+                            with LoginFields('phone'):
+                                yield player.mobile_number, player._plain_password
+                                
+                        @pytest.mark.parametrize('user', [pytest.lazy_fixture('player_inactive_with_email'), pytest.lazy_fixture('player_inactive_with_phone')])
+                        def test_player_login_user_inactive(user):
+                            result = Player.login(username=user[0], password=user[1], ip='127.0.0.1', is_mobile=False)
+                            assert result == ERR_USER_INACTIVE
+                        ```
+					</section>
+                    <section data-markdown>
+                        ### Parameter tuples
+
+                        ```python
+                        @pytest.fixture
+                        def player_banned(player):
+                            player.isBanned = True
+                            return player._plain_username, player._plain_password
+                          
+                        @pytest.fixture
+                        def player_inactive(player):
+                            player.isActive = False
+                            return player._plain_username, player._plain_password
+                          
+                        @pytest.mark.parametrize('user,result', [(pytest.lazy_fixture('player_banned'), ERR_USER_BANNED), (pytest.lazy_fixture('player_inactive'), ERR_USER_INACTIVE)])
+                        def test_player_login_errors(user, result):
+                            """ Test login errors
+                            :params user: username/pass tuple
+                            :params result: expected error for the user param login
+                            """
+                            response = Player.login(username=user[0], password=user[1], ip='127.0.0.1', is_mobile=False)
+                            assert result == response
+                        ```
+					</section>
+                    <section data-markdown>
+                        ### Marks
+
+                        Tests can be marked and run using cli filters:
+
+                        ```python
+                        @pytest.mark.mymarker
+                        def test_something():
+                            pass
+                          
+                        @pytest.mark.myothermarker
+                        def test_something():
+                            pass  
+                        ```
+
+                        ```bash
+                        $ pytest -m "mymarker"
+                        $ pytest -m "not mymarker"
+                        ```
+					</section>
+                    <section data-markdown>
+                        ### Auto use fixtures
+
+                        This fixtures are used without explicit request (global).
+
+                        ```python
+                        @pytest.mark.linux
+                        def test_mem_stack():
+                            assert MemSizes().stack == 42
+
+                        @pytest.fixture(autouse=True)
+                        def _platform_skip(request):
+                            marker = request.node.get_marker('linux')
+                            if marker and platform.system() != 'Linux':
+                                pytest.skip('N/A on {}'.format(platform.system()))
+                        ```
+					</section>
+				</section>
+
+				<section>
+                    <section data-markdown>
+                        ## Tests Structure
+
+                        How tests could be organized:
+
+                        ```bash
+                        tests
+                        ├── __init__.py
+                        ├── conftest.py
+                        ├── fixtures
+                        │   ├── __init__.py
+                        │   ├── games.py
+                        │   ├── players.py
+                        │   └── transactions.py
+                        ├── functional
+                        │   ├── __init__.py
+                        │   ├── conftest.py
+                        │   ├── fixtures
+                        │   │   ├── __init__.py
+                        │   │   ├── gateways.py
+                        │   │   ├── mail.py
+                        │   │   └── sms.py
+                        │   ├── test_campaigns.py
+                        │   └── test_gateways.py
+                        └── unit
+                            ├── __init__.py
+                            ├── test_bets.py
+                            ├── test_player.py
+                            └── test_transactions.py
+                        ```
+					</section>
+                    <section data-markdown>
+                        ### conftest.py
+
+                        ```python
+                        # -*- coding: utf-8 -*-
+                        import pytest
+                        from fixtures import *
+                        from functional.fixtures import *
+
+
+                        def pytest_make_parametrize_id(config, val):
+                            """ Provides better parameter ids
+                            """
+                            # hook to name parametrized tests
+                            if type(val).__name__ == 'LazyFixture':
+                                return val.name
+                            return repr(val)
+                        ```
+					</section>
+				</section>
+				<section>
+                    <section data-markdown>
+                        ### Community Plugins:
+
+                        - [pytest-django](http://pytest-django.readthedocs.org/): `--create-db`, fixtures (rf, client, admin_client...)
+                        - [pytest-cov](https://pypi.python.org/pypi/pytest-cov): `--cov myproj tests/`
+                        - [pytest-cache](https://pythonhosted.org/pytest-cache/readme.html): `--lf`
+					</section>
+                    <section data-markdown>
+                        ### Parallel tests:
+
+                        Run parallel tests using [pytest-xdist](https://pytest.org/latest/xdist.html) plugin:
+
+                        ```bash
+                        $ pytest -n 2
+                        ```
+
+                        ```python
+                        @pytest.fixture(scope="module")
+                        def parallel_database_service(request, worker_id):
+                            import sqlalchemy
+                            from settings.testing.database import DATABASE_PARAMS
+                            # create db
+                            DATABASE_PARAMS['name'] = '_'.join([DATABASE_PARAMS['name'], worker_id])
+                            engine = sqlalchemy.create_engine('mysql://{user}:{pass}@{host}:{port}'.format(**DATABASE_PARAMS)) # connect to server
+                            connection = engine.connect()
+                            engine.execute("CREATE DATABASE IF NOT EXISTS %s CHARACTER SET UTF8 collate utf8_general_ci;" % DATABASE_PARAMS['name'])
+                            # hack settings
+                            settings.sqlalchemy = 'mysql+mysqldb://{user}:{pass}@{host}:{port}/{name}?charset=utf8&use_unicode=1'.format(**DATABASE_PARAMS)
+                            # db connection
+                            db = DatabaseTestService()
+                            db.on_setup_class()
+                            db.on_setup()
+                            yield db.transaction
+                            db.on_tear_down()
+                            # drop db
+                            engine.execute("DROP DATABASE %s;" % DATABASE_PARAMS['name'])
+                            connection.close()
+                        ```
+					</section>
+				</section>
+				<section>
+                    <section data-markdown>
+                        ## TOX
+                        #### Standardize testing in Python
+                        `tox` aims to automate and standardize testing in Python. 
+
+                        ```bash
+                        $ tox
+                        ```
+					</section>
+                    <section data-markdown>
+                        #### What is tox?
+                        Tox is a generic [virtualenv](https://pypi.python.org/pypi/virtualenv) management and test command line tool you can use for:
+                        - Checking your package installs correctly with different Python versions and interpreters
+                        - Running your tests in each of the environments, configuring your test tool of choice
+                        - Acting as a frontend to Continuous Integration servers, greatly reducing boilerplate and merging CI and shell-based testing.                        
+					</section>
+                    <section data-markdown>
+                        ### tox.ini - for coreapi:
+
+                        ```ini
+                        [tox]
+                        envlist = py27
+                        skipsdist = True
+
+                        [testenv]
+                        setenv = PYTHONPATH = {toxinidir}
+                        commands =
+                            pytest -v
+                            nosetests -v --ignore-files="(^.*pytest\.py$)"
+                        deps = -r{toxinidir}/requirements.txt
+
+                        [pytest]
+                        python_files = *pytest.py
+                        norecursedirs = .tox .git
+                        ```
+					</section>
+				</section>
+				<section style="text-align: left;">
+					<h1>THE END</h1>
+					<p>
+                        Questions? Be quick, need coffee.
+					</p>
+				</section>
+
+			</div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/search/search.js', async: true },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
