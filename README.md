@@ -406,7 +406,7 @@ def dburi(request):
 - [pytest-cov](https://pypi.python.org/pypi/pytest-cov): `--cov myproj tests/`
 - [pytest-cache](https://pythonhosted.org/pytest-cache/readme.html): `--lf`
 
-### Parallel tests:
+### Parallel tests (WIP):
 
 Run parallel tests using [pytest-xdist](https://pytest.org/latest/xdist.html) plugin:
 
