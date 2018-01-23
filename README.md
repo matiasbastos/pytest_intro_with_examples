@@ -327,7 +327,7 @@ tests/
                 assert username == 'overridden-username'
 ```
 
-For more information: https://docs.pytest.org/en/latest/fixture.html#overriding-fixtures-on-various-levels
+For details about overriding fixtures: https://docs.pytest.org/en/latest/fixture.html#overriding-fixtures-on-various-levels
 
 ## Usage tricks
 
@@ -530,3 +530,11 @@ deps = -r{toxinidir}/requirements.txt
 python_files = *pytest.py
 norecursedirs = .tox .git
 ```
+
+
+
+## Useful links:
+
+- https://docs.pytest.org
+- http://devork.be/talks/advanced-fixtures/advfix.html
+- https://agopian.info/presentations/2015_06_djangocon_europe/?full#pytest-plugins
