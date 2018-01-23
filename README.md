@@ -2,7 +2,7 @@
 
 ### Features:
 
-- Simple tests with no boilerplate:
+- 'Pythonic' tests with no boilerplate:
   - With unittest: 
 
   ```python
@@ -29,7 +29,7 @@
       assert foo == 42
   ```
 
-- No setUp and tearDown functions.
+- No setUp and tearDown functions (you can setup and tear down with fixtures).
 
 - Fine grained control over the life span of the objects with 'scope'.
 
@@ -89,7 +89,7 @@ Scope options: “function” (default), “class”, “module” or “session
 Pytest supports execution of fixture specific finalization code when the fixture goes out of scope. By using a `yield` statement instead of `return`, all the code after the *yield* statement serves as the teardown code.
 
 ```python
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def database_service(request):
     db = DatabaseTestService()
     db.on_setup_class()
@@ -97,7 +97,7 @@ def database_service(request):
     yield db.transaction
     db.on_tear_down()
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def cache_service():
     cache = CacheTestService()
     yield cache.on_setup_class()
@@ -376,6 +376,8 @@ def dburi(request):
 
 ### Included:
 
+https://docs.pytest.org/en/latest/plugins.html
+
 | `_pytest.assertion`     | support for presenting detailed information in failing assertions. |
 | ----------------------- | ---------------------------------------- |
 | `_pytest.cacheprovider` | merged implementation of the cache provider |
@@ -413,6 +415,8 @@ Run parallel tests using [pytest-xdist](https://pytest.org/latest/xdist.html) pl
 ```bash
 $ pytest -n 2
 ```
+
+The problem with running tests on multiple workers is with the shared resources. For example, sharing the database between workers could lead to data inconsistency or locks. To fix this, you can generate a resource per each worker and tear it down at the end like this:
 
 ```python
 @pytest.fixture(scope="module")
@@ -457,7 +461,7 @@ Tox is a generic [virtualenv](https://pypi.python.org/pypi/virtualenv) managemen
 - Running your tests in each of the environments, configuring your test tool of choice
 - Acting as a frontend to Continuous Integration servers, greatly reducing boilerplate and merging CI and shell-based testing.
 
-### tox.ini - for coreapi:
+### tox.ini - example to run pytest and nose:
 
 ```ini
 [tox]
