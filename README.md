@@ -235,23 +235,34 @@ def _platform_skip(request):
 
 ## Tests Structure
 
-How tests could be organized (just an example):
+How tests could be organized :
 
 ```bash
 tests
 ├── __init__.py
 ├── conftest.py
 ├── fixtures
-│   ├── games.py
-│   ├── players.py
-│   └── transactions.py
+│   ├── __init__.py
+│   ├── cache.py
+│   └── database.py
 ├── functional
+│   ├── __init__.py
+│   ├── conftest.py
 │   ├── fixtures
+│   │   ├── __init__.py
 │   │   ├── gateways.py
-│   │   └── mail.py
+│   │   ├── mail.py
+│   │   └── sms.py
 │   ├── test_campaigns.py
-│   └── test_payment_gateway.py
+│   └── test_gateways.py
 └── unit
+    ├── __init__.py
+    ├── conftest.py
+    ├── fixtures
+    │   ├── __init__.py
+    │   ├── games.py
+    │   ├── players.py
+    │   └── transactions.py
     ├── test_bets.py
     ├── test_player.py
     └── test_transactions.py
@@ -259,12 +270,14 @@ tests
 
 Test files could end in '_pytest.py' to make it easier to filter which tests are run by nosetests and which by pytest, for the case you can't migrate completely to pytest. 
 
-### conftest.py
+### Main conftest.py example
 
 ```python
 # -*- coding: utf-8 -*-
 import pytest
-from fixtures import *
+# Here we just import the common fixtures for all the tests,
+# mainly services like database, cache, etc.
+from fixtures import databases, cache
 
 
 def pytest_make_parametrize_id(config, val):
@@ -276,7 +289,45 @@ def pytest_make_parametrize_id(config, val):
     return repr(val)
 ```
 
+### Fixtures structure and overriding 
 
+In relatively large test suite, you most likely need to `override` a `global` or `root` fixture with a `locally` defined one, keeping the test code readable and maintainable.
+
+```python
+tests/
+    __init__.py
+
+    conftest.py
+        # content of tests/conftest.py
+        import pytest
+
+        @pytest.fixture
+        def username():
+            return 'username'
+
+    test_something.py
+        # content of tests/test_something.py
+        def test_username(username):
+            assert username == 'username'
+
+    subfolder/
+        __init__.py
+
+        conftest.py
+            # content of tests/subfolder/conftest.py
+            import pytest
+
+            @pytest.fixture
+            def username(username):
+                return 'overridden-' + username
+
+        test_something.py
+            # content of tests/subfolder/test_something.py
+            def test_username(username):
+                assert username == 'overridden-username'
+```
+
+For more information: https://docs.pytest.org/en/latest/fixture.html#overriding-fixtures-on-various-levels
 
 ## Usage tricks
 
